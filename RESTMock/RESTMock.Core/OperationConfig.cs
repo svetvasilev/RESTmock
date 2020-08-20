@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Mime;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices.ComTypes;
@@ -11,25 +13,34 @@ namespace RESTMock.Core
 {
     public class OperationConfig : IFluentOperationConfig
     {
-        private string httpMethod;
+        private HttpMethod httpMethod;
         
         private string completeRoute = "/";
 
         private string contentType;
 
+        private int expectedInvoications = 0;
+
+        private int actualInvocations = 0;
+
         private IDictionary<string, object> expectedRequestHeaders;
 
         private IDictionary<string, string> responseHeaders;
 
-        private Func<System.IO.Stream, OperationResponse> rawBodyProcessingCallback;
+        private Func<System.IO.Stream, OperationResponse<string>> rawBodyProcessingCallback;
 
-        public OperationConfig(string httpMethod)
+        public OperationConfig(HttpMethod httpMethod)
         {
             this.httpMethod = httpMethod;
 
             expectedRequestHeaders = new Dictionary<string, object>();
 
             responseHeaders = new Dictionary<string, string>();
+        }
+
+        public OperationConfig(HttpMethod httpMethod, int expectedInvocationCount) : this(httpMethod)
+        {
+            expectedInvoications = expectedInvocationCount;
         }
 
         public IFluentOperationConfig Accepts(string mimeType)
@@ -53,7 +64,7 @@ namespace RESTMock.Core
             return this;
         }
 
-        public IFluentOperationConfig BodyProcessor(Func<System.IO.Stream, OperationResponse> handler)
+        public IFluentOperationConfig BodyProcessor(Func<System.IO.Stream, OperationResponse<string>> handler)
         {
             if (rawBodyProcessingCallback != null)
             {
@@ -65,54 +76,15 @@ namespace RESTMock.Core
             return this;
         }
 
-        internal void RequestReceivedHandler(object sender, HttpContextArgs args)
+        public IFluentOperationConfig BodyProcessor<T>(Func<System.IO.Stream, OperationResponse<T>> handler)
         {
-            //if (args.Context.Request.Url.PathAndQuery == completeRoute 
-            //    && args.Context.Request.HttpMethod == httpMethod)
-            //{
-                // TODO: perform the other checks on request headers
-                // When all tests are ok, invoke first the RequestContents validator, and then finally CreateResponse callback
+            throw new NotImplementedException();
+        }        
 
-                if (!CheckHeaders(args.Context.Request))
-                {
-                    throw new InvalidOperationException($"Request headers do not match for operation {httpMethod} {completeRoute}");
-                }
+        //public void WriteBody<T>(T objectContents)
+        //{
 
-                if (rawBodyProcessingCallback == null)
-                {
-                    throw new InvalidOperationException($"No body processing handler defined for operation {ToString()}");
-                }
-
-                var operationResponse = rawBodyProcessingCallback(args.Context.Request.InputStream);
-                SendResponse(args.Context.Response, operationResponse);
-            //}
-        }
-
-        private void SendResponse(HttpListenerResponse httpResponse, OperationResponse operationResponse)
-        {
-            // Adding global headers
-            foreach (var header in responseHeaders)
-            {
-                httpResponse.AddHeader(header.Key, header.Value);
-            }
-            //Adding operation headers
-            foreach (var header in operationResponse.ResponseHeaders)
-            {
-                httpResponse.AddHeader(header.Key, header.Value);
-            }
-
-            // rewinding the response body stream just in case
-            var operationResponseStream = operationResponse.RawBody;
-            operationResponseStream.Position = 0;
-
-            byte[] responseBodyArray = new byte[operationResponseStream.Length];
-            operationResponseStream.Read(responseBodyArray, 0, responseBodyArray.Length);
-
-            httpResponse.OutputStream.Write(responseBodyArray, 0, responseBodyArray.Length);
-            httpResponse.OutputStream.Flush();
-            httpResponse.OutputStream.Close();
-            
-        }
+        //}
 
         public IFluentOperationConfig Path(string pathSegment)
         {
@@ -154,9 +126,80 @@ namespace RESTMock.Core
             return this;
         }
 
+        public void Verify()
+        {
+            if (expectedInvoications != actualInvocations)
+            {
+                throw new ApplicationException($"Number of actual invocations ({actualInvocations}) differs from expected invocations for service {ToString()}");
+            }
+        }
+
         public override string ToString()
         {
-            return $"{httpMethod}:{completeRoute}"; // Have to see whether the completeRoute or just the path is more suitable
+            return $"{httpMethod.Method.ToUpper()}:{completeRoute}"; // Have to see whether the completeRoute or just the path is more suitable
+        }
+
+        internal void RequestReceivedHandler(object sender, HttpContextArgs args)
+        {
+            if (!CheckHeaders(args.Context.Request))
+            {
+                throw new InvalidOperationException($"Request headers do not match for operation {httpMethod} {completeRoute}");
+            }
+
+            if (rawBodyProcessingCallback == null)
+            {
+                throw new InvalidOperationException($"No body processing handler defined for operation {ToString()}");
+            }
+
+            IncreaseInvocations();
+
+            var operationResponse = rawBodyProcessingCallback(args.Context.Request.InputStream);
+            SendResponse(args.Context.Response, operationResponse);
+
+        }
+
+        internal void IncreaseInvocations()
+        {
+            actualInvocations++;
+        }
+
+        private void SendResponse<T>(HttpListenerResponse httpResponse, OperationResponse<T> operationResponse)
+        {
+            // Adding global headers
+            foreach (var header in responseHeaders)
+            {
+                httpResponse.AddHeader(header.Key, header.Value);
+            }
+            //Adding operation headers
+            foreach (var header in operationResponse.ResponseHeaders)
+            {
+                httpResponse.AddHeader(header.Key, header.Value);
+            }
+
+            WriteBody(operationResponse.Body, httpResponse);
+
+        }
+
+        private void WriteBody<T>(T contents, HttpListenerResponse httpResponse)
+        {
+            if (typeof(T) == typeof(string))
+            {
+                using (var memStream = new MemoryStream(256))
+                {
+                    using (var responseWriter = new StreamWriter(memStream))
+                    {
+                        responseWriter.Write(contents);
+                        responseWriter.Flush();
+                        // Rewinding the stream so that it is readable at next invocation
+                        memStream.Seek(0, SeekOrigin.Begin);
+
+                        httpResponse.OutputStream.Write(memStream.ToArray(), 0, (int)memStream.Length);
+                        httpResponse.OutputStream.Flush();
+                        httpResponse.OutputStream.Close();
+                    }
+
+                }
+            }
         }
 
         private bool CheckHeaders(HttpListenerRequest req)

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -96,18 +97,70 @@ namespace RESTMock.Core
             await Task.Run(() => httpListener.Stop());
         }
 
-        public IFluentOperationConfig SetupGet(string path, int expectedNumberOfInvocation=1)
+        /// <summary>
+        /// Sets up a GET service mock
+        /// </summary>
+        /// <param name="path">The path on which the service will response</param>
+        /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
+        /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
+        public IFluentOperationConfig SetupGet(string path, int expectedInvoicationsCount=1)
         {
-            // TODO: 1. Creates new OperationConfig instance
-            // 2. Sets the path of the operation
-            // 3. Assingns the event handler to the RequestReceived event
-            var getOperationConfig = new OperationConfig("GET"); // TODO: define an enum for the operation types, if no system one exists already
-            getOperationConfig.Path(path);
-            RequestReceived += getOperationConfig.RequestReceivedHandler;
+            return SetupOperation(HttpMethod.Get, path, expectedInvoicationsCount);
+        }
 
-            expectations.TryAdd(getOperationConfig.ToString(), getOperationConfig);
+        /// <summary>
+        /// Sets up a POST service mock
+        /// </summary>
+        /// <param name="path">The path on which the service will response</param>
+        /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
+        /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
+        public IFluentOperationConfig SetupPost(string path, int expectedInvoicationsCount = 1)
+        {
+            return SetupOperation(HttpMethod.Post, path, expectedInvoicationsCount);
+        }
 
-            return getOperationConfig;
+        /// <summary>
+        /// Sets up a PUT service mock
+        /// </summary>
+        /// <param name="path">The path on which the service will response</param>
+        /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
+        /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
+        public IFluentOperationConfig SetupPut(string path, int expectedInvoicationsCount = 1)
+        {
+            return SetupOperation(HttpMethod.Put, path, expectedInvoicationsCount);
+        }
+
+        /// <summary>
+        /// Sets up a OPTIONS service mock
+        /// </summary>
+        /// <param name="path">The path on which the service will response</param>
+        /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
+        /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
+        public IFluentOperationConfig SetupOptions(string path, int expectedInvoicationsCount = 1)
+        {
+            return SetupOperation(HttpMethod.Options, path, expectedInvoicationsCount);
+        }
+
+        /// <summary>
+        /// Sets up a DELETE service mock
+        /// </summary>
+        /// <param name="path">The path on which the service will response</param>
+        /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
+        /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
+        public IFluentOperationConfig SetupDelete(string path, int expectedInvoicationsCount = 1)
+        {
+            return SetupOperation(HttpMethod.Delete, path, expectedInvoicationsCount);
+        }
+
+        private OperationConfig SetupOperation(HttpMethod httpMethod, string path, int expectedInvoicationsCount)
+        {
+            var operationConfig = new OperationConfig(HttpMethod.Get, expectedInvoicationsCount); // TODO: define an enum for the operation types, if no system one exists already
+            operationConfig.Path(path);
+            RequestReceived += operationConfig.RequestReceivedHandler;
+
+            expectations.TryAdd(operationConfig.ToString(), operationConfig);
+
+            return operationConfig;
         }
     }
 }

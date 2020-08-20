@@ -38,20 +38,39 @@ namespace RESTMock.Core.Tests
             }
         }
 
-        private OperationResponse ProcessBasicRequest(Stream rs)
+        [TestMethod]
+        public async Task PathAndQueryParam_HappyPath()
         {
-            var operationresponse = new OperationResponse()
+            var serviceMock = new ServiceMock("http://localhost:8088/");
+
+            serviceMock.SetupGet("test/path")
+                .QueryParam("param","123")
+                .ContentType("text\\text")
+                .BodyProcessor(rs => ProcessBasicRequest(rs));
+
+            serviceMock.Start();
+
+            using (HttpClient httpClient = new HttpClient())
             {
-                StatusCode = System.Net.HttpStatusCode.OK
-            };
+                httpClient.BaseAddress = new Uri("http://localhost:8088/");
+                var response = await httpClient.GetAsync("test/path?param=123");
 
-            var memStream = new MemoryStream(256);
-            var responseWriter = new StreamWriter(memStream);
+                Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "The status code is not as expected!");
+                // Assert.AreEqual("text\\text", response.Headers.)
+                string content = await response.Content.ReadAsStringAsync();
 
-            responseWriter.Write("Basic test response!");
-            responseWriter.Flush();
+                Assert.AreEqual("Basic test response!", content, "The response content is not as expected!");
 
-            operationresponse.RawBody = memStream;
+            }
+        }
+
+        private StringOperationResponse ProcessBasicRequest(Stream rs)
+        {
+            var operationresponse = new StringOperationResponse()
+            {
+                StatusCode = System.Net.HttpStatusCode.OK,
+                Body = "Basic test response!"
+            };           
 
             return operationresponse;
         }

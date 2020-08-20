@@ -21,7 +21,11 @@ namespace RESTMock.Core
 
         IFluentOperationConfig Authorization(string authorization);
 
-        IFluentOperationConfig BodyProcessor(Func<System.IO.Stream, OperationResponse> handler);
+        IFluentOperationConfig BodyProcessor(Func<System.IO.Stream, OperationResponse<string>> handler);
+
+        IFluentOperationConfig BodyProcessor<T>(Func<System.IO.Stream, OperationResponse<T>> handler);
+
+        void Verify();
 
     }
 }
