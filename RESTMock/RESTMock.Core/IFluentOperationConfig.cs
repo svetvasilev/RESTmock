@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
 
 namespace RESTMock.Core
 {
@@ -15,15 +16,21 @@ namespace RESTMock.Core
 
         IFluentOperationConfig ResponseHeaders(IDictionary<string,object> headers);
 
+        IFluentOperationConfig ResponseStatus(HttpStatusCode httpStatus);
+
         IFluentOperationConfig Accepts(string mimeType);
 
         IFluentOperationConfig ContentType(string contentType);
 
         IFluentOperationConfig Authorization(string authorization);
 
-        IFluentOperationConfig BodyProcessor(Func<System.IO.Stream, OperationResponse<string>> handler);
+        IFluentOperationConfig BodyProcessor(Func<System.IO.Stream, OperationResponse<System.IO.Stream>> handler);
 
-        IFluentOperationConfig BodyProcessor<T>(Func<System.IO.Stream, OperationResponse<T>> handler);
+        IFluentOperationConfig BodyProcessor(Func<string, OperationResponse<string>> handler);
+
+        // IFluentOperationConfig BodyProcessor<TRequest,TResponse>(Func<TRequest, OperationResponse<TResponse>> handler);
+
+        IFluentOperationConfig BodyProcessor(Func<dynamic, OperationResponse<dynamic>> handler);
 
         void Verify();
 

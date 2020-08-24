@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,6 +10,7 @@ using System.Net.Mime;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
+using System.Xml.Linq;
 
 namespace RESTMock.Core
 {
@@ -23,11 +26,21 @@ namespace RESTMock.Core
 
         private int actualInvocations = 0;
 
+        private HttpStatusCode httpStatus = HttpStatusCode.OK;
+
         private IDictionary<string, object> expectedRequestHeaders;
 
         private IDictionary<string, string> responseHeaders;
 
-        private Func<System.IO.Stream, OperationResponse<string>> rawBodyProcessingCallback;
+        private Func<System.IO.Stream, OperationResponse<System.IO.Stream>> rawBodyProcessingCallback;
+
+        private Func<string, OperationResponse<string>> stringBodyProcessingCallback;
+
+        private Func<dynamic, OperationResponse<dynamic>> dynamicBodyProcessingCallback;
+
+        private Func<Object, OperationResponse<Object>> typedBodyProcessingCallback;
+
+        //Type TReq, TResp;
 
         public OperationConfig(HttpMethod httpMethod)
         {
@@ -64,7 +77,7 @@ namespace RESTMock.Core
             return this;
         }
 
-        public IFluentOperationConfig BodyProcessor(Func<System.IO.Stream, OperationResponse<string>> handler)
+        public IFluentOperationConfig BodyProcessor(Func<System.IO.Stream, OperationResponse<System.IO.Stream>> handler)
         {
             if (rawBodyProcessingCallback != null)
             {
@@ -76,9 +89,33 @@ namespace RESTMock.Core
             return this;
         }
 
-        public IFluentOperationConfig BodyProcessor<T>(Func<System.IO.Stream, OperationResponse<T>> handler)
+        public IFluentOperationConfig BodyProcessor(Func<string, OperationResponse<string>> handler)
         {
-            throw new NotImplementedException();
+            if (stringBodyProcessingCallback != null)
+            {
+                throw new InvalidOperationException($"There has already been registered body processor for operation: {ToString()}");
+            }
+            
+            stringBodyProcessingCallback = handler;
+
+            return this;
+        }
+
+        //public IFluentOperationConfig BodyProcessor<TRequest,TResponse>(Func<TRequest, OperationResponse<TResponse>> handler)
+        //{
+        //    typedBodyProcessingCallback = (Func<object, OperationResponse<object>>)handler;
+        //}
+
+        public IFluentOperationConfig BodyProcessor(Func<dynamic, OperationResponse<dynamic>> handler)
+        {
+            if (dynamicBodyProcessingCallback != null)
+            {
+                throw new InvalidOperationException($"There has already been registered body processor for operation: {ToString()}");
+            }
+
+            dynamicBodyProcessingCallback = handler;
+
+            return this;
         }        
 
         //public void WriteBody<T>(T objectContents)
@@ -126,6 +163,13 @@ namespace RESTMock.Core
             return this;
         }
 
+        public IFluentOperationConfig ResponseStatus(HttpStatusCode httpStatus) 
+        {
+            this.httpStatus = httpStatus;
+
+            return this;
+        }
+
         public void Verify()
         {
             if (expectedInvoications != actualInvocations)
@@ -146,16 +190,80 @@ namespace RESTMock.Core
                 throw new InvalidOperationException($"Request headers do not match for operation {httpMethod} {completeRoute}");
             }
 
-            if (rawBodyProcessingCallback == null)
+            if (rawBodyProcessingCallback == null 
+                && dynamicBodyProcessingCallback == null
+                && stringBodyProcessingCallback == null)
             {
                 throw new InvalidOperationException($"No body processing handler defined for operation {ToString()}");
             }
 
             IncreaseInvocations();
 
-            var operationResponse = rawBodyProcessingCallback(args.Context.Request.InputStream);
-            SendResponse(args.Context.Response, operationResponse);
+            // Typed body processor takes precedence over string based            
+            if (dynamicBodyProcessingCallback != null)
+            {
+                var requestObject = DeserializeDynamicRequestObject(args.Context.Request);
+                var operationResponse = dynamicBodyProcessingCallback((dynamic)requestObject);
 
+                SendResponse(args.Context.Response, operationResponse);
+            } 
+            else if (rawBodyProcessingCallback != null)
+            {
+                var operationResponse = rawBodyProcessingCallback(args.Context.Request.InputStream);
+                
+                SendResponse(args.Context.Response, operationResponse);
+            }
+            else if (stringBodyProcessingCallback != null)
+            {
+                string bodyContents = ReadBodyAsString(args.Context.Request.InputStream, args.Context.Request.ContentEncoding);
+                var operationResponse = stringBodyProcessingCallback(bodyContents);
+                
+                SendResponse(args.Context.Response, operationResponse);
+            }
+
+        }
+
+        private dynamic DeserializeDynamicRequestObject(HttpListenerRequest request)
+        {
+            string requestContentType = request.ContentType;
+
+            if (string.IsNullOrEmpty(requestContentType))
+            {
+                requestContentType = "application/json";
+            }
+
+            if (requestContentType.ToLowerInvariant().Contains("json"))
+            {
+                using (var reqReader = new StreamReader(request.InputStream))
+                {
+                    // Deserialize from Json
+                    dynamic jDynamic = JsonConvert.DeserializeObject(reqReader.ReadToEnd());
+
+                    return jDynamic;
+                }
+            }
+
+            if (requestContentType.ToLowerInvariant().Contains("xml"))
+            {
+                // Deserialize from Json                
+                dynamic xDynamic = DynamicXml.Load(request.InputStream);
+
+                return xDynamic;
+            }
+
+            return null;
+        }
+
+        private string ReadBodyAsString(System.IO.Stream bodyStream, System.Text.Encoding encoding=null)
+        {
+            string body = null;
+            using (var sr = new StreamReader(bodyStream, encoding == null ? 
+                Encoding.UTF8 : encoding))
+            {
+                body = sr.ReadToEnd();
+            }
+
+            return body;
         }
 
         internal void IncreaseInvocations()
@@ -175,6 +283,8 @@ namespace RESTMock.Core
             {
                 httpResponse.AddHeader(header.Key, header.Value);
             }
+
+            httpResponse.StatusCode = (int)this.httpStatus;
 
             WriteBody(operationResponse.Body, httpResponse);
 
@@ -215,7 +325,7 @@ namespace RESTMock.Core
 
                 var resultHeaders = requestHeaders.Intersect(expectedRequestHeaders);
 
-                return resultHeaders.Count() == expectedRequestHeaders.Count(); // TODO: add valuation on value too
+                return resultHeaders.Count() == expectedRequestHeaders.Count(); // TODO: add verification on value too
             }
             else
                 return true;

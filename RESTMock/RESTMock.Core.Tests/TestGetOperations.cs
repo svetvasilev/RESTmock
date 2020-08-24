@@ -20,7 +20,8 @@ namespace RESTMock.Core.Tests
 
             serviceMock.SetupGet("test/path")
                 .ContentType("text\\text")
-                .BodyProcessor(rs => ProcessBasicRequest(rs));
+                .ResponseStatus(HttpStatusCode.OK)
+                .BodyProcessor(rs => ProcessBasicRequest((string)rs));
 
             serviceMock.Start();
 
@@ -39,6 +40,32 @@ namespace RESTMock.Core.Tests
         }
 
         [TestMethod]
+        public async Task PathOnly_Http403_HappyPath()
+        {
+            var serviceMock = new ServiceMock("http://localhost:8088/");
+
+            serviceMock.SetupGet("test/path")
+                .ContentType("text\\text")
+                .ResponseStatus(HttpStatusCode.Forbidden)
+                .BodyProcessor(rs => ProcessBasicRequest((string)rs));
+
+            serviceMock.Start();
+
+            using (HttpClient httpClient = new HttpClient())
+            {
+                httpClient.BaseAddress = new Uri("http://localhost:8088/");
+                var response = await httpClient.GetAsync("test/path");
+
+                Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode, "The status code is not as expected!");
+                // Assert.AreEqual("text\\text", response.Headers.)
+                string content = await response.Content.ReadAsStringAsync();
+
+                Assert.AreEqual("Basic test response!", content, "The response content is not as expected!");
+
+            }
+        }
+
+        [TestMethod]
         public async Task PathAndQueryParam_HappyPath()
         {
             var serviceMock = new ServiceMock("http://localhost:8088/");
@@ -46,7 +73,7 @@ namespace RESTMock.Core.Tests
             serviceMock.SetupGet("test/path")
                 .QueryParam("param","123")
                 .ContentType("text\\text")
-                .BodyProcessor(rs => ProcessBasicRequest(rs));
+                .BodyProcessor(rs => ProcessBasicRequest((string)rs));
 
             serviceMock.Start();
 
@@ -64,7 +91,7 @@ namespace RESTMock.Core.Tests
             }
         }
 
-        private StringOperationResponse ProcessBasicRequest(Stream rs)
+        private StringOperationResponse ProcessBasicRequest(string rs)
         {
             var operationresponse = new StringOperationResponse()
             {
