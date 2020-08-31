@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Net;
 using System.Net.Http;
 using System.Net.Mime;
@@ -40,7 +41,7 @@ namespace RESTMock.Core
 
         private Func<Object, OperationResponse<Object>> typedBodyProcessingCallback;
 
-        //Type TReq, TResp;
+        internal event EventHandler<PathChangedArgs> PathChanged;
 
         public OperationConfig(HttpMethod httpMethod)
         {
@@ -125,19 +126,27 @@ namespace RESTMock.Core
 
         public IFluentOperationConfig Path(string pathSegment)
         {
+            string oldPath = ToString();
+            
             completeRoute += pathSegment;
+
+            OnPathChanged(oldPath, ToString());
 
             return this;
         }
 
         public IFluentOperationConfig QueryParam(string name, string value)
         {
+            string oldPath = ToString();
+
             if (!completeRoute.Contains("?") && !completeRoute.EndsWith("?"))
             {
                 completeRoute += $"?{name}={value}";
             }
             else
                 completeRoute += $"&{name}={value}";
+
+            OnPathChanged(oldPath, ToString());
 
             return this;
         }
@@ -292,23 +301,30 @@ namespace RESTMock.Core
 
         private void WriteBody<T>(T contents, HttpListenerResponse httpResponse)
         {
-            if (typeof(T) == typeof(string))
+            try
             {
-                using (var memStream = new MemoryStream(256))
+                if (typeof(T) == typeof(string))
                 {
-                    using (var responseWriter = new StreamWriter(memStream))
+                    using (var memStream = new MemoryStream(256))
                     {
-                        responseWriter.Write(contents);
-                        responseWriter.Flush();
-                        // Rewinding the stream so that it is readable at next invocation
-                        memStream.Seek(0, SeekOrigin.Begin);
+                        using (var responseWriter = new StreamWriter(memStream))
+                        {
+                            responseWriter.Write(contents);
+                            responseWriter.Flush();
+                            // Rewinding the stream so that it is readable at next invocation
+                            memStream.Seek(0, SeekOrigin.Begin);
 
-                        httpResponse.OutputStream.Write(memStream.ToArray(), 0, (int)memStream.Length);
-                        httpResponse.OutputStream.Flush();
-                        httpResponse.OutputStream.Close();
+                            httpResponse.OutputStream.Write(memStream.ToArray(), 0, (int)memStream.Length);
+                            httpResponse.OutputStream.Flush();
+                            httpResponse.OutputStream.Close();
+                        }
+
                     }
-
                 }
+            }
+            finally
+            {
+                httpResponse.Close();
             }
         }
 
@@ -329,6 +345,15 @@ namespace RESTMock.Core
             }
             else
                 return true;
+        }
+
+        protected void OnPathChanged(string oldPath, string newPath)
+        {
+            PathChanged?.Invoke(this, new PathChangedArgs()
+            {
+                OldPath = oldPath,
+                NewPath = newPath
+            });
         }
     }
 }

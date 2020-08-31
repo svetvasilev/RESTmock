@@ -40,18 +40,26 @@ namespace RESTMock.Core
         private async void Run()
         {
             while(httpListener.IsListening)
-            { 
-                var httpContext = await httpListener.GetContextAsync();
-
-                if (httpContext != null)
+            {
+                try
                 {
-                    var receivedRequest = new HttpContextArgs()
-                    {
-                        Context = httpContext
-                    };
+                    var httpContext = await httpListener.GetContextAsync();
 
-                    OnRequestReceived(receivedRequest);
+                    if (httpContext != null)
+                    {
+                        var receivedRequest = new HttpContextArgs()
+                        {
+                            Context = httpContext
+                        };
+
+                        OnRequestReceived(receivedRequest);
+                    }
                 }
+                catch (HttpListenerException ex)
+                {
+                    // Log the exception
+                }
+                
             }
         }
 
@@ -92,9 +100,10 @@ namespace RESTMock.Core
             Task.Run(() => Run());
         }
 
-        public async void Stop()
+        public async Task Stop()
         {
             await Task.Run(() => httpListener.Stop());
+            await Task.Delay(250); // Adding tiny delay to allow for the cleanup to take place
         }
 
         /// <summary>
@@ -154,13 +163,27 @@ namespace RESTMock.Core
 
         private OperationConfig SetupOperation(HttpMethod httpMethod, string path, int expectedInvoicationsCount)
         {
-            var operationConfig = new OperationConfig(HttpMethod.Get, expectedInvoicationsCount); // TODO: define an enum for the operation types, if no system one exists already
+            var operationConfig = new OperationConfig(HttpMethod.Get, expectedInvoicationsCount); 
+            
             operationConfig.Path(path);
+            operationConfig.PathChanged += OperationConfig_PathChanged;
+
             RequestReceived += operationConfig.RequestReceivedHandler;
 
             expectations.TryAdd(operationConfig.ToString(), operationConfig);
 
             return operationConfig;
+        }
+
+        private void OperationConfig_PathChanged(object sender, PathChangedArgs e)
+        {
+            IFluentOperationConfig operation = null;
+            expectations.TryRemove(e.OldPath, out operation);
+
+            if (operation != null)
+            {
+                expectations.TryAdd(e.NewPath, operation);
+            }
         }
     }
 }

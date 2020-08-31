@@ -25,18 +25,26 @@ namespace RESTMock.Core.Tests
 
             serviceMock.Start();
 
-            using (HttpClient httpClient = new HttpClient())
+            try
             {
-                httpClient.BaseAddress = new Uri("http://localhost:8088/");
-                var response = await httpClient.GetAsync("test/path");
+                using (HttpClient httpClient = new HttpClient())
+                {
+                    httpClient.BaseAddress = new Uri("http://localhost:8088/");
+                    var response = await httpClient.GetAsync("test/path");
 
-                Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "The status code is not as expected!");
-                // Assert.AreEqual("text\\text", response.Headers.)
-                string content = await response.Content.ReadAsStringAsync();
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "The status code is not as expected!");
+                    // Assert.AreEqual("text\\text", response.Headers.)
+                    string content = await response.Content.ReadAsStringAsync();
 
-                Assert.AreEqual("Basic test response!", content, "The response content is not as expected!");
+                    Assert.AreEqual("Basic test response!", content, "The response content is not as expected!");
 
+                }
             }
+            finally
+            {
+                await serviceMock.Stop();
+            }
+            
         }
 
         [TestMethod]
@@ -51,17 +59,24 @@ namespace RESTMock.Core.Tests
 
             serviceMock.Start();
 
-            using (HttpClient httpClient = new HttpClient())
+            try
             {
-                httpClient.BaseAddress = new Uri("http://localhost:8088/");
-                var response = await httpClient.GetAsync("test/path");
+                using (HttpClient httpClient = new HttpClient())
+                {
+                    httpClient.BaseAddress = new Uri("http://localhost:8088/");
+                    var response = await httpClient.GetAsync("test/path");
 
-                Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode, "The status code is not as expected!");
-                // Assert.AreEqual("text\\text", response.Headers.)
-                string content = await response.Content.ReadAsStringAsync();
+                    Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode, "The status code is not as expected!");
+                    // Assert.AreEqual("text\\text", response.Headers.)
+                    string content = await response.Content.ReadAsStringAsync();
 
-                Assert.AreEqual("Basic test response!", content, "The response content is not as expected!");
+                    Assert.AreEqual("Basic test response!", content, "The response content is not as expected!");
 
+                }
+            }
+            finally
+            {
+                await serviceMock.Stop();
             }
         }
 
@@ -77,18 +92,25 @@ namespace RESTMock.Core.Tests
 
             serviceMock.Start();
 
-            using (HttpClient httpClient = new HttpClient())
+            try
             {
-                httpClient.BaseAddress = new Uri("http://localhost:8088/");
-                var response = await httpClient.GetAsync("test/path?param=123");
+                using (HttpClient httpClient = new HttpClient())
+                {
+                    httpClient.BaseAddress = new Uri("http://localhost:8088/");
+                    var response = await httpClient.GetAsync("test/path?param=123");
 
-                Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "The status code is not as expected!");
-                // Assert.AreEqual("text\\text", response.Headers.)
-                string content = await response.Content.ReadAsStringAsync();
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "The status code is not as expected!");
+                    // Assert.AreEqual("text\\text", response.Headers.)
+                    string content = await response.Content.ReadAsStringAsync();
 
-                Assert.AreEqual("Basic test response!", content, "The response content is not as expected!");
+                    Assert.AreEqual("Basic test response!", content, "The response content is not as expected!");
 
+                }
             }
+            finally
+            {
+                await serviceMock.Stop();
+            }            
         }
 
         private StringOperationResponse ProcessBasicRequest(string rs)
