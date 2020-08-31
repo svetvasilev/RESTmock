@@ -113,6 +113,48 @@ namespace RESTMock.Core.Tests
             }            
         }
 
+        [TestMethod]
+        public async Task PathOnly_DynamicResponse_HappyPath()
+        {
+            var serviceMock = new ServiceMock("http://localhost:8088/");
+
+            serviceMock.SetupGet("test/path")
+                .ContentType("text\\json")
+                .ResponseStatus(HttpStatusCode.OK)
+                .ResponseBody(() => new OperationResponse<dynamic> { 
+                    Body = new { 
+                        SomeValue1 = "SomeValue1", 
+                        SomeValue2 = "SomeValue2" 
+                    }
+                });
+
+            serviceMock.Start();
+
+            try
+            {
+                using (HttpClient httpClient = new HttpClient())
+                {
+                    httpClient.BaseAddress = new Uri("http://localhost:8088/");
+                    var response = await httpClient.GetAsync("test/path");
+
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "The status code is not as expected!");
+                    // Assert.AreEqual("text\\text", response.Headers.)
+                    string content = await response.Content.ReadAsStringAsync();
+
+                    var responseObj = Newtonsoft.Json.Linq.JObject.Parse(content);
+
+                    Assert.AreEqual("SomeValue1", responseObj["SomeValue1"], "The response content is not as expected!");
+                    Assert.AreEqual("SomeValue2", responseObj["SomeValue2"], "The response content is not as expected!");
+
+                }
+            }
+            finally
+            {
+                await serviceMock.Stop();
+            }
+
+        }
+
         private StringOperationResponse ProcessBasicRequest(string rs)
         {
             var operationresponse = new StringOperationResponse()

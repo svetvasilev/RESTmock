@@ -41,6 +41,8 @@ namespace RESTMock.Core
 
         private Func<Object, OperationResponse<Object>> typedBodyProcessingCallback;
 
+        private Func<OperationResponse<dynamic>> dynamicResponseBodyHandler;
+
         internal event EventHandler<PathChangedArgs> PathChanged;
 
         public OperationConfig(HttpMethod httpMethod)
@@ -73,11 +75,23 @@ namespace RESTMock.Core
 
         public IFluentOperationConfig ContentType(string contentType)
         {
+            this.contentType = contentType;
             responseHeaders.Add("ContentType", contentType);
 
             return this;
         }
 
+        public IFluentOperationConfig ResponseBody(Func<OperationResponse<dynamic>> response)
+        {
+            if(dynamicResponseBodyHandler != null)
+            {
+                throw new InvalidOperationException($"There has already been registered response body handler for operation: {ToString()}");
+            }
+
+            dynamicResponseBodyHandler = response;
+
+            return this;
+        }
         public IFluentOperationConfig BodyProcessor(Func<System.IO.Stream, OperationResponse<System.IO.Stream>> handler)
         {
             if (rawBodyProcessingCallback != null)
@@ -199,9 +213,10 @@ namespace RESTMock.Core
                 throw new InvalidOperationException($"Request headers do not match for operation {httpMethod} {completeRoute}");
             }
 
-            if (rawBodyProcessingCallback == null 
+            if (rawBodyProcessingCallback == null                 
+                && stringBodyProcessingCallback == null
                 && dynamicBodyProcessingCallback == null
-                && stringBodyProcessingCallback == null)
+                && dynamicResponseBodyHandler == null)
             {
                 throw new InvalidOperationException($"No body processing handler defined for operation {ToString()}");
             }
@@ -227,6 +242,12 @@ namespace RESTMock.Core
                 string bodyContents = ReadBodyAsString(args.Context.Request.InputStream, args.Context.Request.ContentEncoding);
                 var operationResponse = stringBodyProcessingCallback(bodyContents);
                 
+                SendResponse(args.Context.Response, operationResponse);
+            }
+            else if (dynamicResponseBodyHandler != null)
+            {
+                var operationResponse = dynamicResponseBodyHandler();
+
                 SendResponse(args.Context.Response, operationResponse);
             }
 
@@ -318,7 +339,29 @@ namespace RESTMock.Core
                             httpResponse.OutputStream.Flush();
                             httpResponse.OutputStream.Close();
                         }
+                    }
+                }
+                else if (typeof(T) == typeof(object))
+                {
+                    // Handling dynamic objects
+                    if (contentType.ToLowerInvariant().Contains("json"))
+                    {
+                        string responseBody = JsonConvert.SerializeObject(contents);
+                        
+                        using (var memStream = new MemoryStream(256))
+                        {
+                            using (var responseWriter = new StreamWriter(memStream))
+                            {
+                                responseWriter.Write(responseBody);
+                                responseWriter.Flush();
+                                // Rewinding the stream so that it is readable at next invocation
+                                memStream.Seek(0, SeekOrigin.Begin);
 
+                                httpResponse.OutputStream.Write(memStream.ToArray(), 0, (int)memStream.Length);
+                                httpResponse.OutputStream.Flush();
+                                httpResponse.OutputStream.Close();
+                            }
+                        }
                     }
                 }
             }

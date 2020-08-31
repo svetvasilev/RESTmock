@@ -18,6 +18,8 @@ namespace RESTMock.Core
 
         IFluentOperationConfig ResponseStatus(HttpStatusCode httpStatus);
 
+        IFluentOperationConfig ResponseBody(Func<OperationResponse<dynamic>> response);
+
         IFluentOperationConfig Accepts(string mimeType);
 
         IFluentOperationConfig ContentType(string contentType);
@@ -31,6 +33,7 @@ namespace RESTMock.Core
         // IFluentOperationConfig BodyProcessor<TRequest,TResponse>(Func<TRequest, OperationResponse<TResponse>> handler);
 
         IFluentOperationConfig BodyProcessor(Func<dynamic, OperationResponse<dynamic>> handler);
+
 
         void Verify();
 
