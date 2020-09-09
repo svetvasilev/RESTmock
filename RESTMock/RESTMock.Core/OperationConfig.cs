@@ -12,10 +12,11 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Xml.Linq;
+using System.Xml.Serialization;
 
 namespace RESTMock.Core
 {
-    public class OperationConfig : IFluentOperationConfig
+    public class OperationConfig<TReq, TResp> : IFluentOperationConfig<TReq, TResp>, IOperationRequestProcessor
     {
         private HttpMethod httpMethod;
         
@@ -33,15 +34,17 @@ namespace RESTMock.Core
 
         private IDictionary<string, string> responseHeaders;
 
-        private Func<System.IO.Stream, OperationResponse<System.IO.Stream>> rawBodyProcessingCallback;
+        private Func<TReq, TResp> rawBodyProcessingCallback;
 
-        private Func<string, OperationResponse<string>> stringBodyProcessingCallback;
+        //private Func<string, OperationResponse<string>> stringBodyProcessingCallback;
 
-        private Func<dynamic, OperationResponse<dynamic>> dynamicBodyProcessingCallback;
+        //private Func<dynamic, OperationResponse<dynamic>> dynamicBodyProcessingCallback;
 
-        private Func<Object, OperationResponse<Object>> typedBodyProcessingCallback;
+        //private Func<Object, OperationResponse<Object>> typedBodyProcessingCallback;
 
         private Func<OperationResponse<dynamic>> dynamicResponseBodyHandler;
+
+        private Func<TResp> basicResponseBodyHandler;
 
         internal event EventHandler<PathChangedArgs> PathChanged;
 
@@ -59,29 +62,29 @@ namespace RESTMock.Core
             expectedInvoications = expectedInvocationCount;
         }
 
-        public IFluentOperationConfig Accepts(string mimeType)
+        public IFluentOperationConfig<TReq, TResp> Accepts(string mimeType)
         {
             expectedRequestHeaders.Add("Accepts", mimeType);
 
             return this;
         }
 
-        public IFluentOperationConfig Authorization(string authorization)
+        public IFluentOperationConfig<TReq, TResp> Authorization(string authorization)
         {
             expectedRequestHeaders.Add("Authorization", authorization);
 
             return this;
         }
 
-        public IFluentOperationConfig ContentType(string contentType)
+        public IFluentOperationConfig<TReq, TResp> ContentType(string contentType)
         {
             this.contentType = contentType;
-            responseHeaders.Add("ContentType", contentType);
+            responseHeaders.Add("Content-Type", contentType);
 
             return this;
         }
 
-        public IFluentOperationConfig ResponseBody(Func<OperationResponse<dynamic>> response)
+        public IFluentOperationConfig<TReq, TResp> ResponseBody(Func<OperationResponse<dynamic>> response)
         {
             if(dynamicResponseBodyHandler != null)
             {
@@ -92,7 +95,20 @@ namespace RESTMock.Core
 
             return this;
         }
-        public IFluentOperationConfig BodyProcessor(Func<System.IO.Stream, OperationResponse<System.IO.Stream>> handler)
+
+        public IFluentOperationConfig<TReq, TResp> ResponseBody(Func<TResp> responseBody)
+        {
+            if (basicResponseBodyHandler != null)
+            {
+                throw new InvalidOperationException($"There has already been registered response body handler for operation: {ToString()}");
+            }
+
+            basicResponseBodyHandler = responseBody;
+
+            return this;
+        }
+
+        public IFluentOperationConfig<TReq, TResp> BodyProcessor(Func<TReq, TResp> handler)
         {
             if (rawBodyProcessingCallback != null)
             {
@@ -104,41 +120,41 @@ namespace RESTMock.Core
             return this;
         }
 
-        public IFluentOperationConfig BodyProcessor(Func<string, OperationResponse<string>> handler)
-        {
-            if (stringBodyProcessingCallback != null)
-            {
-                throw new InvalidOperationException($"There has already been registered body processor for operation: {ToString()}");
-            }
-            
-            stringBodyProcessingCallback = handler;
-
-            return this;
-        }
-
-        //public IFluentOperationConfig BodyProcessor<TRequest,TResponse>(Func<TRequest, OperationResponse<TResponse>> handler)
+        //public IFluentOperationConfig<TResp, Req> BodyProcessor(Func<string, OperationResponse<string>> handler)
         //{
-        //    typedBodyProcessingCallback = (Func<object, OperationResponse<object>>)handler;
+        //    if (stringBodyProcessingCallback != null)
+        //    {
+        //        throw new InvalidOperationException($"There has already been registered body processor for operation: {ToString()}");
+        //    }
+            
+        //    stringBodyProcessingCallback = handler;
+
+        //    return this;
         //}
 
-        public IFluentOperationConfig BodyProcessor(Func<dynamic, OperationResponse<dynamic>> handler)
-        {
-            if (dynamicBodyProcessingCallback != null)
-            {
-                throw new InvalidOperationException($"There has already been registered body processor for operation: {ToString()}");
-            }
+        ////public IFluentOperationConfig BodyProcessor<TRequest,TResponse>(Func<TRequest, OperationResponse<TResponse>> handler)
+        ////{
+        ////    typedBodyProcessingCallback = (Func<object, OperationResponse<object>>)handler;
+        ////}
 
-            dynamicBodyProcessingCallback = handler;
+        //public IFluentOperationConfig<TResp, Req> BodyProcessor(Func<dynamic, OperationResponse<dynamic>> handler)
+        //{
+        //    if (dynamicBodyProcessingCallback != null)
+        //    {
+        //        throw new InvalidOperationException($"There has already been registered body processor for operation: {ToString()}");
+        //    }
 
-            return this;
-        }        
+        //    dynamicBodyProcessingCallback = handler;
+
+        //    return this;
+        //}        
 
         //public void WriteBody<T>(T objectContents)
         //{
 
         //}
 
-        public IFluentOperationConfig Path(string pathSegment)
+        public IFluentOperationConfig<TReq, TResp> Path(string pathSegment)
         {
             string oldPath = ToString();
             
@@ -149,7 +165,7 @@ namespace RESTMock.Core
             return this;
         }
 
-        public IFluentOperationConfig QueryParam(string name, string value)
+        public IFluentOperationConfig<TReq, TResp> QueryParam(string name, string value)
         {
             string oldPath = ToString();
 
@@ -165,28 +181,28 @@ namespace RESTMock.Core
             return this;
         }
 
-        public IFluentOperationConfig RequestHeader(string name, string value)
+        public IFluentOperationConfig<TReq, TResp> RequestHeader(string name, string value)
         {
             expectedRequestHeaders.Add(name, value);
 
             return this;
         }
 
-        public IFluentOperationConfig RequestHeaders(IDictionary<string, object> headers)
+        public IFluentOperationConfig<TReq, TResp> RequestHeaders(IDictionary<string, object> headers)
         {
             expectedRequestHeaders.Concat(headers);
 
             return this;
         }
 
-        public IFluentOperationConfig ResponseHeaders(IDictionary<string, object> headers)
+        public IFluentOperationConfig<TReq, TResp> ResponseHeaders(IDictionary<string, object> headers)
         {
             expectedRequestHeaders.Concat(headers);
 
             return this;
         }
 
-        public IFluentOperationConfig ResponseStatus(HttpStatusCode httpStatus) 
+        public IFluentOperationConfig<TReq, TResp> ResponseStatus(HttpStatusCode httpStatus) 
         {
             this.httpStatus = httpStatus;
 
@@ -201,12 +217,19 @@ namespace RESTMock.Core
             }
         }
 
+        public string Operation { 
+            get {
+                return ToString();
+            } 
+        }
+
         public override string ToString()
         {
             return $"{httpMethod.Method.ToUpper()}:{completeRoute}"; // Have to see whether the completeRoute or just the path is more suitable
         }
 
-        internal void RequestReceivedHandler(object sender, HttpContextArgs args)
+        //internal void RequestReceivedHandler(object sender, HttpContextArgs args)
+        public void ProcessRequest(object sender, HttpContextArgs args)
         {
             if (!CheckHeaders(args.Context.Request))
             {
@@ -214,8 +237,8 @@ namespace RESTMock.Core
             }
 
             if (rawBodyProcessingCallback == null                 
-                && stringBodyProcessingCallback == null
-                && dynamicBodyProcessingCallback == null
+                //&& stringBodyProcessingCallback == null
+                //&& dynamicBodyProcessingCallback == null
                 && dynamicResponseBodyHandler == null)
             {
                 throw new InvalidOperationException($"No body processing handler defined for operation {ToString()}");
@@ -224,33 +247,50 @@ namespace RESTMock.Core
             IncreaseInvocations();
 
             // Typed body processor takes precedence over string based            
-            if (dynamicBodyProcessingCallback != null)
-            {
-                var requestObject = DeserializeDynamicRequestObject(args.Context.Request);
-                var operationResponse = dynamicBodyProcessingCallback((dynamic)requestObject);
+            //if (dynamicBodyProcessingCallback != null)
+            //{
+            //    var requestObject = DeserializeDynamicRequestObject(args.Context.Request);
+            //    var operationResponse = dynamicBodyProcessingCallback((dynamic)requestObject);
 
-                SendResponse(args.Context.Response, operationResponse);
-            } 
-            else if (rawBodyProcessingCallback != null)
+            //    SendResponse(args.Context.Response, operationResponse);
+            //} 
+            //else 
+            if (rawBodyProcessingCallback != null)
             {
-                var operationResponse = rawBodyProcessingCallback(args.Context.Request.InputStream);
+                var requestObject = DeserializeBody(args.Context.Request);
+                var respoObject = rawBodyProcessingCallback(requestObject);
+
+                var operationResponse = new OperationResponse<TResp>()
+                {
+                    Body = respoObject
+                };
                 
                 SendResponse(args.Context.Response, operationResponse);
             }
-            else if (stringBodyProcessingCallback != null)
-            {
-                string bodyContents = ReadBodyAsString(args.Context.Request.InputStream, args.Context.Request.ContentEncoding);
-                var operationResponse = stringBodyProcessingCallback(bodyContents);
+            //else if (stringBodyProcessingCallback != null)
+            //{
+            //    string bodyContents = ReadBodyAsString(args.Context.Request.InputStream, args.Context.Request.ContentEncoding);
+            //    var operationResponse = stringBodyProcessingCallback(bodyContents);
                 
-                SendResponse(args.Context.Response, operationResponse);
-            }
-            else if (dynamicResponseBodyHandler != null)
-            {
-                var operationResponse = dynamicResponseBodyHandler();
+            //    SendResponse(args.Context.Response, operationResponse);
+            //}
+            //else if (dynamicResponseBodyHandler != null)
+            //{
+            //    var respoObject = dynamicResponseBodyHandler();
 
-                SendResponse(args.Context.Response, operationResponse);
-            }
+            //    var operationResponse = new OperationResponse<dynamic>()
+            //    {
+            //        Body = respoObject
+            //    };
 
+            //    SendResponse(args.Context.Response, operationResponse);
+            //}
+
+        }
+
+        internal OperationConfig<TReq, TResp> AsSelf<TReq1, TResp1>()
+        {
+            return this;
         }
 
         private dynamic DeserializeDynamicRequestObject(HttpListenerRequest request)
@@ -296,12 +336,70 @@ namespace RESTMock.Core
             return body;
         }
 
+        private TReq DeserializeBody(HttpListenerRequest request)
+        {
+            TReq requestObject = default(TReq);
+
+            string requestContentType = request.ContentType;
+
+            if (string.IsNullOrEmpty(requestContentType))
+            {
+                requestContentType = "text/text";
+            }
+
+            switch (request.ContentType)
+            {
+                case string json when json.ToLowerInvariant().Contains("json"):
+                    requestObject = DeserializeJsonBody(request.InputStream);
+                    break;
+                case string xml when xml.ToLowerInvariant().Contains("xml"):
+                    requestObject = DeserializeXmlBody(request.InputStream);
+                    break;
+                default:                    
+                    requestObject = DeserializeRawBody(request.InputStream);
+                    break;
+            }
+
+            return requestObject;
+        }
+
+        private static TReq DeserializeJsonBody(Stream bodyStream)
+        {
+            using (var reqReader = new StreamReader(bodyStream))
+            {
+                // Deserialize from Json
+                var requestObject = JsonConvert.DeserializeObject<TReq>(reqReader.ReadToEnd());
+
+                return requestObject;
+            }
+        }
+
+        private static TReq DeserializeXmlBody(Stream bodyStream)
+        {
+            var xmlSerializer = new System.Xml.Serialization.XmlSerializer(typeof(TReq));
+
+            var requestObject = (TReq)xmlSerializer.Deserialize(bodyStream);
+
+            return requestObject;
+        }
+
+        private static TReq DeserializeRawBody(Stream bodyStream)
+        {
+            using (var reqReader = new StreamReader(bodyStream))
+            {
+                // Deserialize from Json
+                string requestObject = reqReader.ReadToEnd();
+
+                return (TReq)Convert.ChangeType(requestObject, typeof(TReq));
+            }
+        }
+
         internal void IncreaseInvocations()
         {
             actualInvocations++;
         }
 
-        private void SendResponse<T>(HttpListenerResponse httpResponse, OperationResponse<T> operationResponse)
+        private void SendResponse(HttpListenerResponse httpResponse, OperationResponse<TResp> operationResponse)
         {
             // Adding global headers
             foreach (var header in responseHeaders)
@@ -316,8 +414,48 @@ namespace RESTMock.Core
 
             httpResponse.StatusCode = (int)this.httpStatus;
 
-            WriteBody(operationResponse.Body, httpResponse);
+            // WriteBody(operationResponse.Body, httpResponse);
+            WriteResponseBody(operationResponse.Body, httpResponse);
 
+        }
+
+        private void WriteResponseBody(TResp contents, HttpListenerResponse httpResponse)
+        {
+            try
+            {
+                switch (httpResponse.ContentType)
+                {
+                    case string json when json.ToLowerInvariant().Contains("json"):
+                        string responseBody = JsonConvert.SerializeObject(contents);
+
+                        WriteResponseToOutputStream(httpResponse, responseBody);
+                        break;
+                    case string xml when xml.ToLowerInvariant().Contains("xml"):
+                        var xmlSerializer = new XmlSerializer(typeof(TResp));
+
+                        using (var sw = new StringWriter())
+                        {
+                            xmlSerializer.Serialize(sw, contents);
+
+                            WriteResponseToOutputStream(httpResponse, sw.ToString());
+                        }
+                        break;
+                    default:
+                        using (var sw = new StringWriter())
+                        {
+                            sw.Write(contents);
+
+                            WriteResponseToOutputStream(httpResponse, sw.ToString());
+                        }
+                        break;
+                }
+
+                
+            }
+            finally
+            {
+                httpResponse.Close();
+            }
         }
 
         private void WriteBody<T>(T contents, HttpListenerResponse httpResponse)
@@ -326,20 +464,7 @@ namespace RESTMock.Core
             {
                 if (typeof(T) == typeof(string))
                 {
-                    using (var memStream = new MemoryStream(256))
-                    {
-                        using (var responseWriter = new StreamWriter(memStream))
-                        {
-                            responseWriter.Write(contents);
-                            responseWriter.Flush();
-                            // Rewinding the stream so that it is readable at next invocation
-                            memStream.Seek(0, SeekOrigin.Begin);
-
-                            httpResponse.OutputStream.Write(memStream.ToArray(), 0, (int)memStream.Length);
-                            httpResponse.OutputStream.Flush();
-                            httpResponse.OutputStream.Close();
-                        }
-                    }
+                    WriteResponseToOutputStream(httpResponse, contents.ToString());
                 }
                 else if (typeof(T) == typeof(object))
                 {
@@ -347,27 +472,32 @@ namespace RESTMock.Core
                     if (contentType.ToLowerInvariant().Contains("json"))
                     {
                         string responseBody = JsonConvert.SerializeObject(contents);
-                        
-                        using (var memStream = new MemoryStream(256))
-                        {
-                            using (var responseWriter = new StreamWriter(memStream))
-                            {
-                                responseWriter.Write(responseBody);
-                                responseWriter.Flush();
-                                // Rewinding the stream so that it is readable at next invocation
-                                memStream.Seek(0, SeekOrigin.Begin);
 
-                                httpResponse.OutputStream.Write(memStream.ToArray(), 0, (int)memStream.Length);
-                                httpResponse.OutputStream.Flush();
-                                httpResponse.OutputStream.Close();
-                            }
-                        }
+                        WriteResponseToOutputStream(httpResponse, responseBody);
                     }
                 }
             }
             finally
             {
                 httpResponse.Close();
+            }
+        }
+
+        private static void WriteResponseToOutputStream(HttpListenerResponse httpResponse, string responseBody)
+        {
+            using (var memStream = new MemoryStream(256))
+            {
+                using (var responseWriter = new StreamWriter(memStream))
+                {
+                    responseWriter.Write(responseBody);
+                    responseWriter.Flush();
+                    // Rewinding the stream so that it is readable at next invocation
+                    memStream.Seek(0, SeekOrigin.Begin);
+
+                    httpResponse.OutputStream.Write(memStream.ToArray(), 0, (int)memStream.Length);
+                    httpResponse.OutputStream.Flush();
+                    httpResponse.OutputStream.Close();
+                }
             }
         }
 

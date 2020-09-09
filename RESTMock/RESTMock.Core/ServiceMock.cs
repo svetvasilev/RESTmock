@@ -13,13 +13,13 @@ namespace RESTMock.Core
 
         private event EventHandler<HttpContextArgs> RequestReceived;
 
-        private ConcurrentDictionary<string, IFluentOperationConfig> expectations;
+        private ConcurrentDictionary<string, IFluentOperationUnknown> expectations;
 
         public ServiceMock(string baseUri)
         {
             InitListener(baseUri);
 
-            expectations = new ConcurrentDictionary<string, IFluentOperationConfig>();
+            expectations = new ConcurrentDictionary<string, IFluentOperationUnknown>();
         }
 
         private void InitListener(params string[] prefixes)
@@ -70,7 +70,7 @@ namespace RESTMock.Core
             //    RequestReceived(this, args);
             //}
             string operationKey = $"{args.Context.Request.HttpMethod}:{args.Context.Request.Url.PathAndQuery}"; // Same here - whether path only, or path and query, is more suitable
-            IFluentOperationConfig expectedOperation;
+            IFluentOperationUnknown expectedOperation;
             
             // This will work well for concretely defined paths, but what about such with placeholders for parameters???
             while(!expectations.TryGetValue(operationKey, out expectedOperation)) { // Have to add some code here
@@ -82,9 +82,9 @@ namespace RESTMock.Core
             }
 
             // TODO: Have to figure out a nicer way to do this
-            var expectedOperationConfig = expectedOperation as OperationConfig;
+            var expectedOperationConfig = expectedOperation as IOperationRequestProcessor;
 
-            expectedOperationConfig.RequestReceivedHandler(this, args);
+            expectedOperationConfig.ProcessRequest(this, args);
         }
 
         public async void Start()
@@ -112,9 +112,9 @@ namespace RESTMock.Core
         /// <param name="path">The path on which the service will response</param>
         /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
         /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
-        public IFluentOperationConfig SetupGet(string path, int expectedInvoicationsCount=1)
+        public IFluentOperationConfig<TReq,TResp> SetupGet<TReq, TResp>(string path, int expectedInvoicationsCount=1)
         {
-            return SetupOperation(HttpMethod.Get, path, expectedInvoicationsCount);
+            return SetupOperation<TReq, TResp>(HttpMethod.Get, path, expectedInvoicationsCount);
         }
 
         /// <summary>
@@ -123,9 +123,9 @@ namespace RESTMock.Core
         /// <param name="path">The path on which the service will response</param>
         /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
         /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
-        public IFluentOperationConfig SetupPost(string path, int expectedInvoicationsCount = 1)
+        public IFluentOperationConfig<TReq, TResp> SetupPost<TReq, TResp>(string path, int expectedInvoicationsCount = 1)
         {
-            return SetupOperation(HttpMethod.Post, path, expectedInvoicationsCount);
+            return SetupOperation<TReq, TResp>(HttpMethod.Post, path, expectedInvoicationsCount);
         }
 
         /// <summary>
@@ -134,9 +134,9 @@ namespace RESTMock.Core
         /// <param name="path">The path on which the service will response</param>
         /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
         /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
-        public IFluentOperationConfig SetupPut(string path, int expectedInvoicationsCount = 1)
+        public IFluentOperationConfig<TReq, TResp> SetupPut<TReq, TResp>(string path, int expectedInvoicationsCount = 1)
         {
-            return SetupOperation(HttpMethod.Put, path, expectedInvoicationsCount);
+            return SetupOperation<TReq, TResp>(HttpMethod.Put, path, expectedInvoicationsCount);
         }
 
         /// <summary>
@@ -145,9 +145,9 @@ namespace RESTMock.Core
         /// <param name="path">The path on which the service will response</param>
         /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
         /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
-        public IFluentOperationConfig SetupOptions(string path, int expectedInvoicationsCount = 1)
+        public IFluentOperationConfig<TReq, TResp> SetupOptions<TReq, TResp>(string path, int expectedInvoicationsCount = 1)
         {
-            return SetupOperation(HttpMethod.Options, path, expectedInvoicationsCount);
+            return SetupOperation<TReq, TResp>(HttpMethod.Options, path, expectedInvoicationsCount);
         }
 
         /// <summary>
@@ -156,28 +156,28 @@ namespace RESTMock.Core
         /// <param name="path">The path on which the service will response</param>
         /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
         /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
-        public IFluentOperationConfig SetupDelete(string path, int expectedInvoicationsCount = 1)
+        public IFluentOperationConfig<TReq, TResp> SetupDelete<TReq, TResp>(string path, int expectedInvoicationsCount = 1)
         {
-            return SetupOperation(HttpMethod.Delete, path, expectedInvoicationsCount);
+            return SetupOperation<TReq, TResp>(HttpMethod.Delete, path, expectedInvoicationsCount);
         }
 
-        private OperationConfig SetupOperation(HttpMethod httpMethod, string path, int expectedInvoicationsCount)
+        private OperationConfig<TReq, TResp> SetupOperation<TReq, TResp>(HttpMethod httpMethod, string path, int expectedInvoicationsCount)
         {
-            var operationConfig = new OperationConfig(HttpMethod.Get, expectedInvoicationsCount); 
+            var operationConfig = new OperationConfig<TReq, TResp>(HttpMethod.Get, expectedInvoicationsCount); 
             
             operationConfig.Path(path);
             operationConfig.PathChanged += OperationConfig_PathChanged;
 
-            RequestReceived += operationConfig.RequestReceivedHandler;
+            RequestReceived += operationConfig.ProcessRequest;
 
-            expectations.TryAdd(operationConfig.ToString(), operationConfig);
+            expectations.TryAdd(operationConfig.ToString(), (IFluentOperationUnknown)operationConfig);
 
             return operationConfig;
         }
 
         private void OperationConfig_PathChanged(object sender, PathChangedArgs e)
         {
-            IFluentOperationConfig operation = null;
+            IFluentOperationUnknown operation = null;
             expectations.TryRemove(e.OldPath, out operation);
 
             if (operation != null)

@@ -18,10 +18,10 @@ namespace RESTMock.Core.Tests
         {
             var serviceMock = new ServiceMock("http://localhost:8088/");
 
-            serviceMock.SetupGet("test/path")
+            serviceMock.SetupGet<string, string>("test/path")
                 .ContentType("text\\text")
                 .ResponseStatus(HttpStatusCode.OK)
-                .BodyProcessor(rs => ProcessBasicRequest((string)rs));
+                .BodyProcessor(rs => ProcessBasicRequest(rs));
 
             serviceMock.Start();
 
@@ -52,7 +52,7 @@ namespace RESTMock.Core.Tests
         {
             var serviceMock = new ServiceMock("http://localhost:8088/");
 
-            serviceMock.SetupGet("test/path")
+            serviceMock.SetupGet<string, string>("test/path")
                 .ContentType("text\\text")
                 .ResponseStatus(HttpStatusCode.Forbidden)
                 .BodyProcessor(rs => ProcessBasicRequest((string)rs));
@@ -85,7 +85,7 @@ namespace RESTMock.Core.Tests
         {
             var serviceMock = new ServiceMock("http://localhost:8088/");
 
-            serviceMock.SetupGet("test/path")
+            serviceMock.SetupGet<string, string>("test/path")
                 .QueryParam("param","123")
                 .ContentType("text\\text")
                 .BodyProcessor(rs => ProcessBasicRequest((string)rs));
@@ -118,7 +118,7 @@ namespace RESTMock.Core.Tests
         {
             var serviceMock = new ServiceMock("http://localhost:8088/");
 
-            serviceMock.SetupGet("test/path")
+            serviceMock.SetupGet<dynamic, OperationResponse<dynamic>>("test/path")
                 .ContentType("text\\json")
                 .ResponseStatus(HttpStatusCode.OK)
                 .ResponseBody(() => new OperationResponse<dynamic> { 
@@ -155,15 +155,15 @@ namespace RESTMock.Core.Tests
 
         }
 
-        private StringOperationResponse ProcessBasicRequest(string rs)
+        private string ProcessBasicRequest(string rs)
         {
-            var operationresponse = new StringOperationResponse()
-            {
-                StatusCode = System.Net.HttpStatusCode.OK,
-                Body = "Basic test response!"
-            };           
+            //var operationresponse = new StringOperationResponse()
+            //{
+            //    StatusCode = System.Net.HttpStatusCode.OK,
+            //    Body = "Basic test response!"
+            //};           
 
-            return operationresponse;
+            return "Basic test response!";
         }
     }
 }

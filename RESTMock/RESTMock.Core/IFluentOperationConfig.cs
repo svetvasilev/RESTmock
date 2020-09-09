@@ -4,38 +4,43 @@ using System.Net;
 
 namespace RESTMock.Core
 {
-    public interface IFluentOperationConfig
+    public interface IFluentOperationConfig<TReq, TResp> : IFluentOperationUnknown
     {
-        IFluentOperationConfig QueryParam(string name, string value);
+        IFluentOperationConfig<TReq, TResp> QueryParam(string name, string value);
 
-        IFluentOperationConfig Path(string pathSegment);
+        IFluentOperationConfig<TReq, TResp> Path(string pathSegment);
 
-        IFluentOperationConfig RequestHeader(string name, string value);
+        IFluentOperationConfig<TReq, TResp> RequestHeader(string name, string value);
 
-        IFluentOperationConfig RequestHeaders(IDictionary<string, object> headers);
+        IFluentOperationConfig<TReq, TResp> RequestHeaders(IDictionary<string, object> headers);
 
-        IFluentOperationConfig ResponseHeaders(IDictionary<string,object> headers);
+        IFluentOperationConfig<TReq, TResp> ResponseHeaders(IDictionary<string,object> headers);
 
-        IFluentOperationConfig ResponseStatus(HttpStatusCode httpStatus);
+        IFluentOperationConfig<TReq, TResp> ResponseStatus(HttpStatusCode httpStatus);
 
-        IFluentOperationConfig ResponseBody(Func<OperationResponse<dynamic>> response);
+        IFluentOperationConfig<TReq, TResp> ResponseBody(Func<OperationResponse<dynamic>> response);
 
-        IFluentOperationConfig Accepts(string mimeType);
+        IFluentOperationConfig<TReq, TResp> ResponseBody (Func<TResp> responseBody);
 
-        IFluentOperationConfig ContentType(string contentType);
+        IFluentOperationConfig<TReq, TResp> Accepts(string mimeType);
 
-        IFluentOperationConfig Authorization(string authorization);
+        IFluentOperationConfig<TReq, TResp> ContentType(string contentType);
 
-        IFluentOperationConfig BodyProcessor(Func<System.IO.Stream, OperationResponse<System.IO.Stream>> handler);
+        IFluentOperationConfig<TReq, TResp> Authorization(string authorization);
 
-        IFluentOperationConfig BodyProcessor(Func<string, OperationResponse<string>> handler);
-
-        // IFluentOperationConfig BodyProcessor<TRequest,TResponse>(Func<TRequest, OperationResponse<TResponse>> handler);
-
-        IFluentOperationConfig BodyProcessor(Func<dynamic, OperationResponse<dynamic>> handler);
-
+        IFluentOperationConfig<TReq, TResp> BodyProcessor(Func<TReq, TResp> handler);
 
         void Verify();
 
+    }
+
+    public interface IFluentOperationUnknown
+    {
+        string Operation { get; }
+    }
+
+    public interface IOperationRequestProcessor
+    {
+        void ProcessRequest(object sender, HttpContextArgs args);
     }
 }
