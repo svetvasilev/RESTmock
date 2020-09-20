@@ -115,6 +115,17 @@ namespace RESTMock.Core
         }
 
         /// <summary>
+        /// Sets up a GET service mock with string response
+        /// </summary>
+        /// <param name="path">The path on which the service will response</param>
+        /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
+        /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
+        public IFluentOperationConfig<string, string> SetupGet(string path, int expectedInvoicationsCount = 1)
+        {
+            return SetupOperation<string, string>(HttpMethod.Get, path, expectedInvoicationsCount);
+        }
+
+        /// <summary>
         /// Sets up a GET service mock
         /// </summary>
         /// <param name="path">The path on which the service will response</param>
@@ -123,6 +134,17 @@ namespace RESTMock.Core
         public IFluentOperationConfig<TReq,TResp> SetupGet<TReq, TResp>(string path, int expectedInvoicationsCount=1)
         {
             return SetupOperation<TReq, TResp>(HttpMethod.Get, path, expectedInvoicationsCount);
+        }
+
+        /// <summary>
+        /// Sets up a POST service mock with string request and response bodies
+        /// </summary>
+        /// <param name="path">The path on which the service will response</param>
+        /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
+        /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
+        public IFluentOperationConfig<string, string> SetupPost(string path, int expectedInvoicationsCount = 1)
+        {
+            return SetupOperation<string, string>(HttpMethod.Post, path, expectedInvoicationsCount);
         }
 
         /// <summary>
@@ -137,6 +159,17 @@ namespace RESTMock.Core
         }
 
         /// <summary>
+        /// Sets up a PUT service mock with string request and response bodies
+        /// </summary>
+        /// <param name="path">The path on which the service will response</param>
+        /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
+        /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
+        public IFluentOperationConfig<string, string> SetupPut(string path, int expectedInvoicationsCount = 1)
+        {
+            return SetupOperation<string, string>(HttpMethod.Put, path, expectedInvoicationsCount);
+        }
+
+        /// <summary>
         /// Sets up a PUT service mock
         /// </summary>
         /// <param name="path">The path on which the service will response</param>
@@ -148,6 +181,17 @@ namespace RESTMock.Core
         }
 
         /// <summary>
+        /// Sets up a OPTIONS service mock with string request and response bodyes
+        /// </summary>
+        /// <param name="path">The path on which the service will response</param>
+        /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
+        /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
+        public IFluentOperationConfig<string, string> SetupOptions(string path, int expectedInvoicationsCount = 1)
+        {
+            return SetupOperation<string, string>(HttpMethod.Options, path, expectedInvoicationsCount);
+        }
+
+        /// <summary>
         /// Sets up a OPTIONS service mock
         /// </summary>
         /// <param name="path">The path on which the service will response</param>
@@ -156,6 +200,17 @@ namespace RESTMock.Core
         public IFluentOperationConfig<TReq, TResp> SetupOptions<TReq, TResp>(string path, int expectedInvoicationsCount = 1)
         {
             return SetupOperation<TReq, TResp>(HttpMethod.Options, path, expectedInvoicationsCount);
+        }
+
+        /// <summary>
+        /// Sets up a DELETE service mock with string request and response bodies
+        /// </summary>
+        /// <param name="path">The path on which the service will response</param>
+        /// <param name="expectedInvoicationsCount">Optional number of expected invocations. Default is 1.</param>
+        /// <returns>An instance of a class implementing the <see cref="IFluentOperationConfig"/> interface</returns>
+        public IFluentOperationConfig<string, string> SetupDelete(string path, int expectedInvoicationsCount = 1)
+        {
+            return SetupOperation<string, string>(HttpMethod.Delete, path, expectedInvoicationsCount);
         }
 
         /// <summary>

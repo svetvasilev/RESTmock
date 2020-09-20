@@ -48,11 +48,78 @@ namespace RESTMock.Core.Tests
         }
 
         [TestMethod]
+        public async Task PathOnly_SimpleSyntax_HappyPath()
+        {
+            var serviceMock = new ServiceMock("http://localhost:8088/");
+
+            serviceMock.SetupGet("test/path")
+                .ContentType("text\\text")
+                .ResponseStatus(HttpStatusCode.OK)
+                .BodyProcessor(rs => ProcessBasicRequest(rs));
+
+            serviceMock.Start();
+
+            try
+            {
+                using (HttpClient httpClient = new HttpClient())
+                {
+                    httpClient.BaseAddress = new Uri("http://localhost:8088/");
+                    var response = await httpClient.GetAsync("test/path");
+
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "The status code is not as expected!");
+                    // Assert.AreEqual("text\\text", response.Headers.)
+                    string content = await response.Content.ReadAsStringAsync();
+
+                    Assert.AreEqual("Basic test response!", content, "The response content is not as expected!");
+
+                }
+            }
+            finally
+            {
+                await serviceMock.Stop();
+            }
+
+        }
+
+        [TestMethod]
         public async Task PathOnly_Http403_HappyPath()
         {
             var serviceMock = new ServiceMock("http://localhost:8088/");
 
             serviceMock.SetupGet<string, string>("test/path")
+                .ContentType("text\\text")
+                .ResponseStatus(HttpStatusCode.Forbidden)
+                .BodyProcessor(rs => ProcessBasicRequest((string)rs));
+
+            serviceMock.Start();
+
+            try
+            {
+                using (HttpClient httpClient = new HttpClient())
+                {
+                    httpClient.BaseAddress = new Uri("http://localhost:8088/");
+                    var response = await httpClient.GetAsync("test/path");
+
+                    Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode, "The status code is not as expected!");
+                    // Assert.AreEqual("text\\text", response.Headers.)
+                    string content = await response.Content.ReadAsStringAsync();
+
+                    Assert.AreEqual("Basic test response!", content, "The response content is not as expected!");
+
+                }
+            }
+            finally
+            {
+                await serviceMock.Stop();
+            }
+        }
+
+        [TestMethod]
+        public async Task PathOnly_Http403_SimpleSyntax_HappyPath()
+        {
+            var serviceMock = new ServiceMock("http://localhost:8088/");
+
+            serviceMock.SetupGet("test/path")
                 .ContentType("text\\text")
                 .ResponseStatus(HttpStatusCode.Forbidden)
                 .BodyProcessor(rs => ProcessBasicRequest((string)rs));
@@ -111,6 +178,39 @@ namespace RESTMock.Core.Tests
             {
                 await serviceMock.Stop();
             }            
+        }
+
+        [TestMethod]
+        public async Task PathAndQueryParam_SimpleSyntax_HappyPath()
+        {
+            var serviceMock = new ServiceMock("http://localhost:8088/");
+
+            serviceMock.SetupGet("test/path")
+                .QueryParam("param", "123")
+                .ContentType("text\\text")
+                .BodyProcessor(rs => ProcessBasicRequest((string)rs));
+
+            serviceMock.Start();
+
+            try
+            {
+                using (HttpClient httpClient = new HttpClient())
+                {
+                    httpClient.BaseAddress = new Uri("http://localhost:8088/");
+                    var response = await httpClient.GetAsync("test/path?param=123");
+
+                    Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "The status code is not as expected!");
+                    // Assert.AreEqual("text\\text", response.Headers.)
+                    string content = await response.Content.ReadAsStringAsync();
+
+                    Assert.AreEqual("Basic test response!", content, "The response content is not as expected!");
+
+                }
+            }
+            finally
+            {
+                await serviceMock.Stop();
+            }
         }
 
         [TestMethod]
