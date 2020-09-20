@@ -4,6 +4,11 @@ using System.Net;
 
 namespace RESTMock.Core
 {
+    /// <summary>
+    /// Defines the fluent syntax operations of a mocked service
+    /// </summary>
+    /// <typeparam name="TReq">The request type</typeparam>
+    /// <typeparam name="TResp">The response type</typeparam>
     public interface IFluentOperationConfig<TReq, TResp> : IFluentOperationUnknown
     {
         IFluentOperationConfig<TReq, TResp> QueryParam(string name, string value);
@@ -18,8 +23,6 @@ namespace RESTMock.Core
 
         IFluentOperationConfig<TReq, TResp> ResponseStatus(HttpStatusCode httpStatus);
 
-        IFluentOperationConfig<TReq, TResp> ResponseBody(Func<OperationResponse<dynamic>> response);
-
         IFluentOperationConfig<TReq, TResp> ResponseBody (Func<TResp> responseBody);
 
         IFluentOperationConfig<TReq, TResp> Accepts(string mimeType);
@@ -32,15 +35,5 @@ namespace RESTMock.Core
 
         void Verify();
 
-    }
-
-    public interface IFluentOperationUnknown
-    {
-        string Operation { get; }
-    }
-
-    public interface IOperationRequestProcessor
-    {
-        void ProcessRequest(object sender, HttpContextArgs args);
     }
 }

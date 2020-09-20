@@ -16,7 +16,12 @@ using System.Xml.Serialization;
 
 namespace RESTMock.Core
 {
-    public class OperationConfig<TReq, TResp> : IFluentOperationConfig<TReq, TResp>, IOperationRequestProcessor
+    /// <summary>
+    /// Concrete implementation of an expected operation configuration
+    /// </summary>
+    /// <typeparam name="TReq">The expected request type</typeparam>
+    /// <typeparam name="TResp">The expected response type</typeparam>
+    public class OperationConfig<TReq, TResp> : IFluentOperationConfig<TReq, TResp>, IOperationRequestReceivedHandler
     {
         private HttpMethod httpMethod;
         
@@ -82,19 +87,7 @@ namespace RESTMock.Core
             responseHeaders.Add("Content-Type", contentType);
 
             return this;
-        }
-
-        public IFluentOperationConfig<TReq, TResp> ResponseBody(Func<OperationResponse<dynamic>> response)
-        {
-            if(dynamicResponseBodyHandler != null)
-            {
-                throw new InvalidOperationException($"There has already been registered response body handler for operation: {ToString()}");
-            }
-
-            dynamicResponseBodyHandler = response;
-
-            return this;
-        }
+        }        
 
         public IFluentOperationConfig<TReq, TResp> ResponseBody(Func<TResp> responseBody)
         {
@@ -119,40 +112,6 @@ namespace RESTMock.Core
 
             return this;
         }
-
-        //public IFluentOperationConfig<TResp, Req> BodyProcessor(Func<string, OperationResponse<string>> handler)
-        //{
-        //    if (stringBodyProcessingCallback != null)
-        //    {
-        //        throw new InvalidOperationException($"There has already been registered body processor for operation: {ToString()}");
-        //    }
-            
-        //    stringBodyProcessingCallback = handler;
-
-        //    return this;
-        //}
-
-        ////public IFluentOperationConfig BodyProcessor<TRequest,TResponse>(Func<TRequest, OperationResponse<TResponse>> handler)
-        ////{
-        ////    typedBodyProcessingCallback = (Func<object, OperationResponse<object>>)handler;
-        ////}
-
-        //public IFluentOperationConfig<TResp, Req> BodyProcessor(Func<dynamic, OperationResponse<dynamic>> handler)
-        //{
-        //    if (dynamicBodyProcessingCallback != null)
-        //    {
-        //        throw new InvalidOperationException($"There has already been registered body processor for operation: {ToString()}");
-        //    }
-
-        //    dynamicBodyProcessingCallback = handler;
-
-        //    return this;
-        //}        
-
-        //public void WriteBody<T>(T objectContents)
-        //{
-
-        //}
 
         public IFluentOperationConfig<TReq, TResp> Path(string pathSegment)
         {
@@ -228,8 +187,7 @@ namespace RESTMock.Core
             return $"{httpMethod.Method.ToUpper()}:{completeRoute}"; // Have to see whether the completeRoute or just the path is more suitable
         }
 
-        //internal void RequestReceivedHandler(object sender, HttpContextArgs args)
-        public void ProcessRequest(object sender, HttpContextArgs args)
+        public void RequestReceived(object sender, HttpContextArgs args)
         {
             if (!CheckHeaders(args.Context.Request))
             {
@@ -237,24 +195,13 @@ namespace RESTMock.Core
             }
 
             if (rawBodyProcessingCallback == null                 
-                //&& stringBodyProcessingCallback == null
-                //&& dynamicBodyProcessingCallback == null
-                && dynamicResponseBodyHandler == null)
+                && basicResponseBodyHandler == null)
             {
                 throw new InvalidOperationException($"No body processing handler defined for operation {ToString()}");
             }
 
             IncreaseInvocations();
-
-            // Typed body processor takes precedence over string based            
-            //if (dynamicBodyProcessingCallback != null)
-            //{
-            //    var requestObject = DeserializeDynamicRequestObject(args.Context.Request);
-            //    var operationResponse = dynamicBodyProcessingCallback((dynamic)requestObject);
-
-            //    SendResponse(args.Context.Response, operationResponse);
-            //} 
-            //else 
+                        
             if (rawBodyProcessingCallback != null)
             {
                 var requestObject = DeserializeBody(args.Context.Request);
@@ -267,30 +214,21 @@ namespace RESTMock.Core
                 
                 SendResponse(args.Context.Response, operationResponse);
             }
-            //else if (stringBodyProcessingCallback != null)
-            //{
-            //    string bodyContents = ReadBodyAsString(args.Context.Request.InputStream, args.Context.Request.ContentEncoding);
-            //    var operationResponse = stringBodyProcessingCallback(bodyContents);
-                
-            //    SendResponse(args.Context.Response, operationResponse);
-            //}
-            //else if (dynamicResponseBodyHandler != null)
-            //{
-            //    var respoObject = dynamicResponseBodyHandler();
 
-            //    var operationResponse = new OperationResponse<dynamic>()
-            //    {
-            //        Body = respoObject
-            //    };
+            if (basicResponseBodyHandler != null)
+            {
+                // var requestObject = DeserializeBody(args.Context.Request);
+                var respoObject = basicResponseBodyHandler();
 
-            //    SendResponse(args.Context.Response, operationResponse);
-            //}
+                var operationResponse = new OperationResponse<TResp>()
+                {
+                    Body = respoObject
+                };
 
-        }
+                SendResponse(args.Context.Response, operationResponse);
+            }
 
-        internal OperationConfig<TReq, TResp> AsSelf<TReq1, TResp1>()
-        {
-            return this;
+
         }
 
         private dynamic DeserializeDynamicRequestObject(HttpListenerRequest request)

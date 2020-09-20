@@ -118,14 +118,12 @@ namespace RESTMock.Core.Tests
         {
             var serviceMock = new ServiceMock("http://localhost:8088/");
 
-            serviceMock.SetupGet<dynamic, OperationResponse<dynamic>>("test/path")
+            serviceMock.SetupGet<dynamic, dynamic>("test/path")
                 .ContentType("text\\json")
                 .ResponseStatus(HttpStatusCode.OK)
-                .ResponseBody(() => new OperationResponse<dynamic> { 
-                    Body = new { 
+                .ResponseBody(() =>  new { 
                         SomeValue1 = "SomeValue1", 
-                        SomeValue2 = "SomeValue2" 
-                    }
+                        SomeValue2 = "SomeValue2"                     
                 });
 
             serviceMock.Start();

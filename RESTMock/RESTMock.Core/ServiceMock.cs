@@ -15,6 +15,10 @@ namespace RESTMock.Core
 
         private ConcurrentDictionary<string, IFluentOperationUnknown> expectations;
 
+        private Task mockRunner = null;
+
+        private CancellationTokenSource tokenSource;
+
         public ServiceMock(string baseUri)
         {
             InitListener(baseUri);
@@ -55,7 +59,7 @@ namespace RESTMock.Core
                         OnRequestReceived(receivedRequest);
                     }
                 }
-                catch (HttpListenerException ex)
+                catch (Exception ex)
                 {
                     // Log the exception
                 }
@@ -82,9 +86,9 @@ namespace RESTMock.Core
             }
 
             // TODO: Have to figure out a nicer way to do this
-            var expectedOperationConfig = expectedOperation as IOperationRequestProcessor;
+            var expectedOperationConfig = expectedOperation as IOperationRequestReceivedHandler;
 
-            expectedOperationConfig.ProcessRequest(this, args);
+            expectedOperationConfig.RequestReceived(this, args);
         }
 
         public async void Start()
@@ -96,14 +100,18 @@ namespace RESTMock.Core
             // this way it will be possible to detect duplicates
             // as well as to keep track of number of invocations of services
             // in order to perform verifications after execution
+            tokenSource = new CancellationTokenSource();            
 
-            Task.Run(() => Run());
+            mockRunner = Task.Run(() => Run(), tokenSource.Token);
         }
 
         public async Task Stop()
         {
-            await Task.Run(() => httpListener.Stop());
-            await Task.Delay(250); // Adding tiny delay to allow for the cleanup to take place
+            tokenSource.Cancel();
+
+            await Task.WhenAll(Task.Run(() => httpListener.Stop()), mockRunner);
+            
+            // await Task.Delay(250); // Adding tiny delay to allow for the cleanup to take place
         }
 
         /// <summary>
@@ -168,7 +176,7 @@ namespace RESTMock.Core
             operationConfig.Path(path);
             operationConfig.PathChanged += OperationConfig_PathChanged;
 
-            RequestReceived += operationConfig.ProcessRequest;
+            RequestReceived += operationConfig.RequestReceived;
 
             expectations.TryAdd(operationConfig.ToString(), (IFluentOperationUnknown)operationConfig);
 
