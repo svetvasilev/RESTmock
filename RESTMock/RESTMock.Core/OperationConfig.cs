@@ -287,10 +287,10 @@ namespace RESTMock.Core
 
             switch (request.ContentType)
             {
-                case string json when json.ToLowerInvariant().Contains("json"):
+                case string json when json.ToLowerInvariant().Contains("json") && typeof(TReq) != typeof(string):
                     requestObject = DeserializeJsonBody(request.InputStream);
                     break;
-                case string xml when xml.ToLowerInvariant().Contains("xml"):
+                case string xml when xml.ToLowerInvariant().Contains("xml") && typeof(TReq) != typeof(string):
                     requestObject = DeserializeXmlBody(request.InputStream);
                     break;
                 default:                    
@@ -363,12 +363,12 @@ namespace RESTMock.Core
             {
                 switch (httpResponse.ContentType)
                 {
-                    case string json when json.ToLowerInvariant().Contains("json"):
+                    case string json when json.ToLowerInvariant().Contains("json") && typeof(TResp) != typeof(string):
                         string responseBody = JsonConvert.SerializeObject(contents);
 
                         WriteResponseToOutputStream(httpResponse, responseBody);
                         break;
-                    case string xml when xml.ToLowerInvariant().Contains("xml"):
+                    case string xml when xml.ToLowerInvariant().Contains("xml") && typeof(TResp) != typeof(string):
                         var xmlSerializer = new XmlSerializer(typeof(TResp));
 
                         using (var sw = new StringWriter())

@@ -107,7 +107,10 @@ namespace RESTMock.Core
 
         public async Task Stop()
         {
-            tokenSource.Cancel();
+            if (tokenSource != null)
+            {
+                tokenSource.Cancel();
+            }            
 
             await Task.WhenAll(Task.Run(() => httpListener.Stop()), mockRunner);
             
@@ -226,7 +229,7 @@ namespace RESTMock.Core
 
         private OperationConfig<TReq, TResp> SetupOperation<TReq, TResp>(HttpMethod httpMethod, string path, int expectedInvoicationsCount)
         {
-            var operationConfig = new OperationConfig<TReq, TResp>(HttpMethod.Get, expectedInvoicationsCount); 
+            var operationConfig = new OperationConfig<TReq, TResp>(httpMethod, expectedInvoicationsCount); 
             
             operationConfig.Path(path);
             operationConfig.PathChanged += OperationConfig_PathChanged;
